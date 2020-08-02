@@ -687,6 +687,18 @@ namespace Client.MirControls
             _sound = SoundList.None;
         }
 
+        public virtual void Show()
+        {
+            if (Visible) return;
+            Visible = true;
+        }
+
+        public virtual void Hide()
+        {
+            if (!Visible) return;
+            Visible = false;
+        }
+
         public virtual void Draw()
         {
             if (IsDisposed || !Visible /*|| Size.Width == 0 || Size.Height == 0*/ || Size.Width > Settings.ScreenWidth || Size.Height > Settings.ScreenHeight)
@@ -940,8 +952,7 @@ namespace Client.MirControls
             if (!Enabled)
                 return;
 
-            if (MouseWheel != null)
-                MouseWheel(this, e);
+            MouseWheel?.Invoke(this, e);
         }
         public virtual void OnKeyPress(KeyPressEventArgs e)
         {
@@ -997,6 +1008,13 @@ namespace Client.MirControls
             if (Parent != null) Parent.Redraw();
 
         }
+
+        #region Font
+        public virtual System.Drawing.Font ScaleFont(System.Drawing.Font font)
+        {
+            return new System.Drawing.Font(font.Name, font.Size * 96f / CMain.Graphics.DpiX, font.Style);
+        }
+        #endregion
 
         #region Disposable
         public bool IsDisposed { get; private set; }

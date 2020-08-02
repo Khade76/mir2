@@ -69,6 +69,8 @@ namespace Client.MirScenes
         public TradeDialog TradeDialog;
         public GuestTradeDialog GuestTradeDialog;
 
+        public CustomPanel1 CustomPanel1;
+
         //public SkillBarDialog SkillBarDialog;
         public List<SkillBarDialog> SkillBarDialogs = new List<SkillBarDialog>();
         public ChatOptionDialog ChatOptionDialog;
@@ -106,13 +108,12 @@ namespace Client.MirScenes
         public ItemRentalDialog ItemRentalDialog;
 
         public BuffDialog BuffsDialog;
-
-        //not added yet
+        
         public KeyboardLayoutDialog KeyboardLayoutDialog;
 
         public static List<ItemInfo> ItemInfoList = new List<ItemInfo>();
         public static List<UserId> UserIdList = new List<UserId>();
-        public static List<ChatItem> ChatItemList = new List<ChatItem>();
+        public static List<UserItem> ChatItemList = new List<UserItem>();
         public static List<ClientQuestInfo> QuestInfoList = new List<ClientQuestInfo>();
         public static List<GameShopItem> GameShopInfoList = new List<GameShopItem>();
         public static List<ClientRecipeInfo> RecipeInfoList = new List<ClientRecipeInfo>();
@@ -195,7 +196,8 @@ namespace Client.MirScenes
             NPCAwakeDialog = new NPCAwakeDialog { Parent = this, Visible = false };
 
             HelpDialog = new HelpDialog { Parent = this, Visible = false };
-            
+            KeyboardLayoutDialog = new KeyboardLayoutDialog { Parent = this, Visible = false };
+
             MountDialog = new MountDialog { Parent = this, Visible = false };
             FishingDialog = new FishingDialog { Parent = this, Visible = false };
             FishingStatusDialog = new FishingStatusDialog { Parent = this, Visible = false };
@@ -209,6 +211,8 @@ namespace Client.MirScenes
             DuraStatusPanel = new DuraStatusDialog { Parent = this, Visible = true };
             TradeDialog = new TradeDialog { Parent = this, Visible = false };
             GuestTradeDialog = new GuestTradeDialog { Parent = this, Visible = false };
+
+            CustomPanel1 = new CustomPanel1(this) { Visible = false };
 
             //SkillBarDialog = new SkillBarDialog { Parent = this, Visible = false };
             SkillBarDialog Bar1 = new SkillBarDialog { Parent = this, Visible = false, BarIndex = 0 };
@@ -313,8 +317,11 @@ namespace Client.MirScenes
         }
         private void GameScene_KeyDown(object sender, KeyEventArgs e)
         {
-            //bool skillMode = Settings.SkillMode ? CMain.Tilde : CMain.Ctrl;
-            //bool altBind = skillMode ? Settings.SkillSet : !Settings.SkillSet;
+            if (GameScene.Scene.KeyboardLayoutDialog.WaitingForBind != null)
+            {
+                GameScene.Scene.KeyboardLayoutDialog.CheckNewInput(e);
+                return;
+            }
 
             foreach (KeyBind KeyCheck in CMain.InputKeys.Keylist)
             {
@@ -538,21 +545,7 @@ namespace Client.MirScenes
                         ItemRentalDialog.Toggle();
                         break;
                     case KeybindOptions.ChangePetmode:
-                        switch (PMode)
-                        {
-                            case PetMode.Both:
-                                Network.Enqueue(new C.ChangePMode { Mode = PetMode.MoveOnly });
-                                return;
-                            case PetMode.MoveOnly:
-                                Network.Enqueue(new C.ChangePMode { Mode = PetMode.AttackOnly });
-                                return;
-                            case PetMode.AttackOnly:
-                                Network.Enqueue(new C.ChangePMode { Mode = PetMode.None });
-                                return;
-                            case PetMode.None:
-                                Network.Enqueue(new C.ChangePMode { Mode = PetMode.Both });
-                                return;
-                        }
+                        ChangePetMode();
                         break;
                     case KeybindOptions.PetmodeBoth:
                         Network.Enqueue(new C.ChangePMode { Mode = PetMode.Both });
@@ -573,27 +566,7 @@ namespace Client.MirScenes
                         Network.Enqueue(new C.IntelligentCreaturePickup { MouseMode = true, Location = MapControl.MapLocation });
                         break;
                     case KeybindOptions.ChangeAttackmode:
-                        switch (AMode)
-                        {
-                            case AttackMode.Peace:
-                                Network.Enqueue(new C.ChangeAMode { Mode = AttackMode.Group });
-                                return;
-                            case AttackMode.Group:
-                                Network.Enqueue(new C.ChangeAMode { Mode = AttackMode.Guild });
-                                return;
-                            case AttackMode.Guild:
-                                Network.Enqueue(new C.ChangeAMode { Mode = AttackMode.EnemyGuild });
-                                return;
-                            case AttackMode.EnemyGuild:
-                                Network.Enqueue(new C.ChangeAMode { Mode = AttackMode.RedBrown });
-                                return;
-                            case AttackMode.RedBrown:
-                                Network.Enqueue(new C.ChangeAMode { Mode = AttackMode.All });
-                                return;
-                            case AttackMode.All:
-                                Network.Enqueue(new C.ChangeAMode { Mode = AttackMode.Peace });
-                                return;
-                        }
+                        ChangeAttackMode();
                         break;
                     case KeybindOptions.AttackmodePeace:
                         Network.Enqueue(new C.ChangeAMode { Mode = AttackMode.Peace });
@@ -617,6 +590,10 @@ namespace Client.MirScenes
                     case KeybindOptions.Help:
                         if (!HelpDialog.Visible) HelpDialog.Show();
                         else HelpDialog.Hide();
+                        break;
+                    case KeybindOptions.Keybind:
+                        if (!KeyboardLayoutDialog.Visible) KeyboardLayoutDialog.Show();
+                        else KeyboardLayoutDialog.Hide();
                         break;
                     case KeybindOptions.Autorun:
                         MapControl.AutoRun = !MapControl.AutoRun;
@@ -670,6 +647,66 @@ namespace Client.MirScenes
                 CharacterDialog.ShowCharacterPage();
             }
             else CharacterDialog.Hide();
+        }
+
+        public void ChangeSkillMode(bool? ctrl)
+        {
+            if (Settings.SkillMode || ctrl == true)
+            {
+                Settings.SkillMode = false;
+                GameScene.Scene.ChatDialog.ReceiveChat("<SkillMode Ctrl>", ChatType.Hint);
+                GameScene.Scene.OptionDialog.ToggleSkillButtons(true);
+            }
+            else if (!Settings.SkillMode || ctrl == false)
+            {
+                Settings.SkillMode = true;
+                GameScene.Scene.ChatDialog.ReceiveChat("<SkillMode ~>", ChatType.Hint);
+                GameScene.Scene.OptionDialog.ToggleSkillButtons(false);
+            }
+        }
+
+        public void ChangePetMode()
+        {
+            switch (PMode)
+            {
+                case PetMode.Both:
+                    Network.Enqueue(new C.ChangePMode { Mode = PetMode.MoveOnly });
+                    return;
+                case PetMode.MoveOnly:
+                    Network.Enqueue(new C.ChangePMode { Mode = PetMode.AttackOnly });
+                    return;
+                case PetMode.AttackOnly:
+                    Network.Enqueue(new C.ChangePMode { Mode = PetMode.None });
+                    return;
+                case PetMode.None:
+                    Network.Enqueue(new C.ChangePMode { Mode = PetMode.Both });
+                    return;
+            }
+        }
+
+        public void ChangeAttackMode()
+        {
+            switch (AMode)
+            {
+                case AttackMode.Peace:
+                    Network.Enqueue(new C.ChangeAMode { Mode = AttackMode.Group });
+                    return;
+                case AttackMode.Group:
+                    Network.Enqueue(new C.ChangeAMode { Mode = AttackMode.Guild });
+                    return;
+                case AttackMode.Guild:
+                    Network.Enqueue(new C.ChangeAMode { Mode = AttackMode.EnemyGuild });
+                    return;
+                case AttackMode.EnemyGuild:
+                    Network.Enqueue(new C.ChangeAMode { Mode = AttackMode.RedBrown });
+                    return;
+                case AttackMode.RedBrown:
+                    Network.Enqueue(new C.ChangeAMode { Mode = AttackMode.All });
+                    return;
+                case AttackMode.All:
+                    Network.Enqueue(new C.ChangeAMode { Mode = AttackMode.Peace });
+                    return;
+            }
         }
 
         public void UseSpell(int key)
@@ -972,8 +1009,10 @@ namespace Client.MirScenes
             MapControl.Process();
             MainDialog.Process();
             InventoryDialog.Process();
+            CustomPanel1.Process();
             GameShopDialog.Process();
             MiniMapDialog.Process();
+
             foreach (SkillBarDialog Bar in Scene.SkillBarDialogs)
                 Bar.Process();
 
@@ -1797,7 +1836,7 @@ namespace Client.MirScenes
             {
                 MapObject ob = MapControl.Objects[i];
                 if (ob.ObjectID != p.ObjectID) continue;
-                ob.Chat(p.Text);
+                ob.Chat(RegexFunctions.CleanChatString(p.Text));
                 return;
             }
 
@@ -2512,8 +2551,11 @@ namespace Client.MirScenes
                 SoundManager.StopSound(20000 + 126 * 10 + 5 + i);
 
             User = null;
-            if (Settings.Resolution != 800)
-                CMain.SetResolution(800, 600);
+            if (Settings.Resolution != 1024)
+            {
+                CMain.SetResolution(1024, 768);
+            }
+
             ActiveScene = new SelectScene(p.Characters);
 
             Dispose();
@@ -2571,7 +2613,6 @@ namespace Client.MirScenes
         }
         private void ChangePMode(S.ChangePMode p)
         {
-
             PMode = p.Mode;
             switch (p.Mode)
             {
@@ -2588,9 +2629,8 @@ namespace Client.MirScenes
                     ChatDialog.ReceiveChat(GameLanguage.PetMode_None, ChatType.Hint);
                     break;
             }
-
-            MainDialog.PModeLabel.Visible = true;
         }
+
         private void ObjectItem(S.ObjectItem p)
         {
             ItemObject ob = new ItemObject(p.ObjectID);
@@ -4598,12 +4638,12 @@ namespace Client.MirScenes
 
         private void ChatItemStats(S.ChatItemStats p)
         {
-            for (int i = 0; i < ChatItemList.Count; i++)
-                if (ChatItemList[i].ID == p.ChatItemId)
-                {
-                    ChatItemList[i].ItemStats = p.Stats;
-                    ChatItemList[i].RecievedTick = CMain.Time;
-                }
+            //for (int i = 0; i < ChatItemList.Count; i++)
+            //    if (ChatItemList[i].ID == p.ChatItemId)
+            //    {
+            //        ChatItemList[i].ItemStats = p.Stats;
+            //        ChatItemList[i].RecievedTick = CMain.Time;
+            //    }
         }
 
         private void GuildInvite(S.GuildInvite p)
